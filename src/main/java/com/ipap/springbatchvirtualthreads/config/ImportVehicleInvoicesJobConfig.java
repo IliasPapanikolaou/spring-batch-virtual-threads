@@ -2,6 +2,7 @@ package com.ipap.springbatchvirtualthreads.config;
 
 import com.ipap.springbatchvirtualthreads.dto.VehicleDTO;
 import com.ipap.springbatchvirtualthreads.listener.CustomJobExecutionListener;
+import com.ipap.springbatchvirtualthreads.reader.MultiResourceReaderThreadSafe;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+import org.springframework.core.task.VirtualThreadTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Slf4j
@@ -45,9 +47,12 @@ public class ImportVehicleInvoicesJobConfig {
         return new StepBuilder("importVehicleInvoiceStep", jobRepository)
                 .<VehicleDTO, VehicleDTO>chunk(100, transactionManager)
                 //.reader(vehicleDTOFlatFileItemReader())
-                .reader(multiResourceItemReader())
+                // .reader(multiResourceItemReader())
+                .reader(multiResourceReaderThreadSafe())
                 .processor(ImportVehicleInvoicesJobConfig::vehicleProcessor)
                 .writer(item -> log.info("Writing item: {}", item))
+                // (Optional step) Scale before run the task - Virtual Threads
+                .taskExecutor(taskExecutor())
                 .build();
     }
 
@@ -56,6 +61,13 @@ public class ImportVehicleInvoicesJobConfig {
         return item;
     }
 
+    public MultiResourceReaderThreadSafe<VehicleDTO> multiResourceReaderThreadSafe() {
+        var multiResourceReader = new MultiResourceReaderThreadSafe<>(multiResourceItemReader());
+        multiResourceReader.setResources(resources);
+        return multiResourceReader;
+    }
+
+    // MultiResourceItemReader and FlatFileItemReader are not thread safe, we need custom ItemReader
     public MultiResourceItemReader<VehicleDTO> multiResourceItemReader() {
         return new MultiResourceItemReaderBuilder<VehicleDTO>()
                 .name("vehicle invoice resources item reader")
@@ -90,4 +102,8 @@ public class ImportVehicleInvoicesJobConfig {
                 .targetType(VehicleDTO.class)
                 .build();
     }*/
+
+    public VirtualThreadTaskExecutor taskExecutor() {
+        return new VirtualThreadTaskExecutor("CustomThread-");
+    }
 }
