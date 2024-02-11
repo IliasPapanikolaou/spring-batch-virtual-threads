@@ -1,6 +1,6 @@
 package com.ipap.springbatchvirtualthreads.config;
 
-import com.ipap.springbatchvirtualthreads.dto.VehicleDTO;
+import com.ipap.springbatchvirtualthreads.dto.VehicleCsvDTO;
 import com.ipap.springbatchvirtualthreads.listener.CustomJobExecutionListener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +24,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 @Configuration
 @RequiredArgsConstructor
 // @EnableBatchProcessing
-public class ImportVehicleInvoicesJobConfig {
+public class ImportVehicleInvoicesFlatFileJobConfig {
 
     @Value("${input.folder.vehicles}")
     private Resource[] resources;
@@ -32,47 +32,47 @@ public class ImportVehicleInvoicesJobConfig {
     private final CustomJobExecutionListener customJobExecutionListener;
 
     @Bean
-    public Job importVehicleInvoicesJob(JobRepository repository, Step importVehicleStep) {
-        return new JobBuilder("importVehicleInvoiceJob", repository)
+    public Job importCsvVehicleInvoicesJob(JobRepository repository, Step importCsvVehicleStep) {
+        return new JobBuilder("importCsvVehicleInvoiceJob", repository)
                 .incrementer(new RunIdIncrementer())
-                .start(importVehicleStep)
+                .start(importCsvVehicleStep)
                 .listener(customJobExecutionListener)
                 .build();
     }
 
     @Bean
-    public Step importVehicleStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+    public Step importCsvVehicleStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("importVehicleInvoiceStep", jobRepository)
-                .<VehicleDTO, VehicleDTO>chunk(100, transactionManager)
+                .<VehicleCsvDTO, VehicleCsvDTO>chunk(100, transactionManager)
                 //.reader(vehicleDTOFlatFileItemReader())
                 .reader(multiResourceItemReader())
-                .processor(ImportVehicleInvoicesJobConfig::vehicleProcessor)
+                .processor(ImportVehicleInvoicesFlatFileJobConfig::vehicleProcessor)
                 .writer(item -> log.info("Writing item: {}", item))
                 .build();
     }
 
-    private static VehicleDTO vehicleProcessor(VehicleDTO item) {
+    private static VehicleCsvDTO vehicleProcessor(VehicleCsvDTO item) {
         log.info("Processing item: {}", item);
         return item;
     }
 
-    public MultiResourceItemReader<VehicleDTO> multiResourceItemReader() {
-        return new MultiResourceItemReaderBuilder<VehicleDTO>()
+    public MultiResourceItemReader<VehicleCsvDTO> multiResourceItemReader() {
+        return new MultiResourceItemReaderBuilder<VehicleCsvDTO>()
                 .name("vehicle invoice resources item reader")
                 .resources(resources)
                 .delegate(vehicleDTOFlatFileItemReader())
                 .build();
     }
 
-    public ResourceAwareItemReaderItemStream<VehicleDTO> vehicleDTOFlatFileItemReader() {
-        return new FlatFileItemReaderBuilder<VehicleDTO>()
+    public ResourceAwareItemReaderItemStream<VehicleCsvDTO> vehicleDTOFlatFileItemReader() {
+        return new FlatFileItemReaderBuilder<VehicleCsvDTO>()
                 .name("vehicle invoice item reader")
                 .saveState(Boolean.FALSE)
                 .linesToSkip(1) // skip header
                 .delimited().delimiter(",")
                 .names("id", "manufacturer", "model", "owner")
                 .comments("#") // skip comments start with '#'
-                .targetType(VehicleDTO.class)
+                .targetType(VehicleCsvDTO.class)
                 .build();
     }
 

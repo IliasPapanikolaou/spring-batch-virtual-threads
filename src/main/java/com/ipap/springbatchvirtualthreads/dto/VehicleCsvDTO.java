@@ -1,6 +1,6 @@
 package com.ipap.springbatchvirtualthreads.dto;
 
-public record VehicleDTO(
+public record VehicleCsvDTO(
         Integer id,
         String manufacturer,
         String model,
